@@ -9,6 +9,7 @@ This tool eliminates the hassle of manually building, sizing, and configuring mu
 It's ready to use here: 
 👉 **https://adambeltz2.github.io/csv-to-drawio/** Or download a copy of the file to use on your own.
 
+![App Demonstration](Demo.gif)
 ---
 
 ## ✨ Features
