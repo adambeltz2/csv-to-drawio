@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV to Draw.io Table Converter</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 850px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: #f4f6f9;
+            color: #333;
+            line-height: 1.5;
+        }
+        .container {
+            background: white;
+            padding: 35px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        h2 {
+            margin-top: 0;
+            color: #111;
+        }
+        .disclaimer-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #664d03;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        .instructions-box {
+            background-color: #e2e3e5;
+            border-left: 4px solid #6c757d;
+            color: #383d41;
+            padding: 15px 20px;
+            border-radius: 4px;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        .instructions-box ol {
+            margin: 5px 0 0 0;
+            padding-left: 20px;
+        }
+        .instructions-box li {
+            margin-bottom: 6px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        input[type="number"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 15px;
+        }
+        textarea {
+            height: 140px;
+            font-family: monospace;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .output-container {
+            margin-top: 30px;
+            display: none;
+        }
+        .xml-box {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: monospace;
+            max-height: 300px;
+            white-space: pre-wrap;
+            font-size: 13px;
+            border: 1px solid #111;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Draw.io Native Table Generator</h2>
+    
+    <div class="disclaimer-box">
+        <strong>🔒 Privacy Disclaimer:</strong> This application runs 100% locally inside your web browser using client-side JavaScript. No data is uploaded, transmitted, or stored on any server. You use this tool at your own risk; the creators assume no liability or responsibility for data input errors or structural anomalies within generated diagrams.
+    </div>
+
+    <div class="instructions-box">
+        <strong>💡 How to use the output in Draw.io:</strong>
+        <ol>
+            <li>Paste your comma-separated spreadsheet data below and set your row height.</li>
+            <li>Click <strong>Generate Draw.io XML</strong> and click the green <strong>Copy to Clipboard</strong> button.</li>
+            <li>Open your diagram workspace in <a href="https://app.diagrams.net/" target="_blank" rel="noopener noreferrer">Draw.io</a>.</li>
+            <li>In the top menu bar, go to <strong>Extras</strong> &gt; <strong>Edit Diagram</strong>.</li>
+            <li>Completely overwrite or paste the copied XML blocks into that text box, then click <strong>OK</strong> or <strong>Apply</strong>.</li>
+        </ol>
+    </div>
+
+    <div class="form-group">
+        <label for="csvData">Paste CSV Data (Include Header Row):</label>
+        <textarea id="csvData" placeholder="Category,Item Name,StatusValue&#10;Hardware,Server Rack A,Active&#10;Hardware,Router B,Maintenance&#10;Software,Database Cluster,Active"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="rowHeight">Row Height (pt / px):</label>
+        <input type="number" id="rowHeight" value="20" min="15" max="100">
+    </div>
+
+    <button onclick="generateDrawioXML()">Generate Draw.io XML</button>
+
+    <div class="output-container" id="outputContainer">
+        <label>Your Draw.io XML Code:</label>
+        <button style="background-color: #28a745; margin-bottom: 12px;" onclick="copyToClipboard()">Copy to Clipboard</button>
+        <div class="xml-box" id="xmlResult"></div>
+    </div>
+</div>
+
+<script>
+    function parseCSV(text) {
+        let lines = text.trim().split('\n');
+        return lines.map(line => {
+            return line.split(',').map(cell => cell.trim());
+        });
+    }
+
+    function escapeXml(unsafe) {
+        return unsafe.replace(/[<>&'"]/g, function (c) {
+            switch (c) {
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '&': return '&amp;';
+                case '\'': return '&apos;';
+                case '"': return '&quot;';
+            }
+        });
+    }
+
+    function generateDrawioXML() {
+        const rawData = document.getElementById('csvData').value;
+        const rowHeight = parseInt(document.getElementById('rowHeight').value) || 20;
+
+        if (!rawData.trim()) {
+            alert("Please paste some CSV data first.");
+            return;
+        }
+
+        const matrix = parseCSV(rawData);
+        if (matrix.length === 0 || matrix[0].length === 0) return;
+
+        const totalRows = matrix.length;
+        const totalCols = matrix[0].length;
+        
+        const totalTableWidth = 600;
+        const colWidth = Math.floor(totalTableWidth / totalCols);
+        const totalTableHeight = totalRows * rowHeight;
+
+        let xml = `<mxGraphModel dx="1426" dy="841" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">\n`;
+        xml += `  <root>\n`;
+        xml += `    <mxCell id="0" />\n`;
+        xml += `    <mxCell id="1" parent="0" />\n`;
+        
+        xml += `    <mxCell id="table_main" parent="1" style="shape=table;startSize=0;container=1;collapsible=0;childLayout=tableLayout;" value="" vertex="1">\n`;
+        xml += `      <mxGeometry height="${totalTableHeight}" width="${totalTableWidth}" x="50" y="50" as="geometry" />\n`;
+        xml += `    </mxCell>\n`;
+
+        for (let r = 0; r < totalRows; r++) {
+            const isHeader = (r === 0);
+            const rowY = r * rowHeight;
+            
+            xml += `    \n`;
+            xml += `    <mxCell id="row_${r}" parent="table_main" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;strokeColor=inherit;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="" vertex="1">\n`;
+            xml += `      <mxGeometry height="${rowHeight}" width="${totalTableWidth}" ${rowY > 0 ? `y="${rowY}"` : ''} as="geometry" />\n`;
+            xml += `    </mxCell>\n`;
+
+            for (let c = 0; c < totalCols; c++) {
+                const cellValue = escapeXml(matrix[r][c] || "");
+                const cellX = c * colWidth;
+                
+                const cellStyle = isHeader 
+                    ? `shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;strokeColor=inherit;overflow=hidden;fillColor=#f5f5f5;fontStyle=1;top=0;left=0;bottom=0;right=0;pointerEvents=1;`
+                    : `shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;strokeColor=inherit;overflow=hidden;fillColor=none;top=0;left=0;bottom=0;right=0;pointerEvents=1;`;
+
+                xml += `    <mxCell id="cell_${r}_${c}" parent="row_${r}" style="${cellStyle}" value="${cellValue}" vertex="1">\n`;
+                xml += `      <mxGeometry height="${rowHeight}" width="${colWidth}" ${cellX > 0 ? `x="${cellX}"` : ''} as="geometry" />\n`;
+                xml += `    </mxCell>\n`;
+            }
+        }
+
+        xml += `  </root>\n`;
+        xml += `</mxGraphModel>`;
+
+        document.getElementById('xmlResult').innerText = xml;
+        document.getElementById('outputContainer').style.display = 'block';
+    }
+
+    function copyToClipboard() {
+        const text = document.getElementById('xmlResult').innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            alert("XML code copied to clipboard successfully!");
+        });
+    }
+</script>
+</body>
+</html>
