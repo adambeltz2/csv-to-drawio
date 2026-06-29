@@ -113,17 +113,18 @@
     <div class="instructions-box">
         <strong>💡 How to use the output in Draw.io:</strong>
         <ol>
-            <li>Paste your comma-separated spreadsheet data below and set your row height.</li>
-            <li>Click <strong>Generate Draw.io XML</strong> and click the green <strong>Copy to Clipboard</strong> button.</li>
+            <li>Copy rows directly from an <strong>Excel Sheet</strong> or a <strong>CSV file</strong> and paste them below.</li>
+            <li>Set your row height, click <strong>Generate Draw.io XML</strong>, and copy the code.</li>
             <li>Open your diagram workspace in <a href="https://app.diagrams.net/" target="_blank" rel="noopener noreferrer">Draw.io</a>.</li>
             <li>In the top menu bar, go to <strong>Extras</strong> &gt; <strong>Edit Diagram</strong>.</li>
-            <li>Completely overwrite or paste the copied XML blocks into that text box, then click <strong>OK</strong> or <strong>Apply</strong>.</li>
+            <li>Completely overwrite the code block inside that text box, then click <strong>OK</strong> or <strong>Apply</strong>.</li>
         </ol>
     </div>
 
     <div class="form-group">
-        <label for="csvData">Paste CSV Data (Include Header Row):</label>
-        <textarea id="csvData" placeholder="Category,Item Name,StatusValue&#10;Hardware,Server Rack A,Active&#10;Hardware,Router B,Maintenance&#10;Software,Database Cluster,Active"></textarea>
+        <label for="csvData">Paste Excel Data or CSV (Include Header Row):</label>
+        <!-- Updated placeholder showing both formats are welcome -->
+        <textarea id="csvData" placeholder="Excel style (Tabs):&#10;Category&#9;Item Name&#9;StatusValue&#10;Hardware&#9;Server Rack A&#9;Active&#10;&#10;Or CSV style (Commas):&#10;Category,Item Name,StatusValue&#10;Hardware,Server Rack A,Active"></textarea>
     </div>
 
     <div class="form-group">
@@ -141,10 +142,20 @@
 </div>
 
 <script>
-    function parseCSV(text) {
+    // Intelligent auto-detecting parser for Comma (CSV) or Tabs (Excel clipboard)
+    function parseSpreadsheetData(text) {
         let lines = text.trim().split('\n');
+        if (lines.length === 0) return [];
+
+        // Check the first line to see if it uses tabs or commas as the primary delimiter
+        const firstLine = lines[0];
+        const tabCount = (firstLine.match(/\t/g) || []).length;
+        const commaCount = (firstLine.match(/,/g) || []).length;
+        
+        const delimiter = (tabCount > commaCount) ? '\t' : ',';
+
         return lines.map(line => {
-            return line.split(',').map(cell => cell.trim());
+            return line.split(delimiter).map(cell => cell.trim());
         });
     }
 
@@ -165,11 +176,12 @@
         const rowHeight = parseInt(document.getElementById('rowHeight').value) || 20;
 
         if (!rawData.trim()) {
-            alert("Please paste some CSV data first.");
+            alert("Please paste your clipboard data first.");
             return;
         }
 
-        const matrix = parseCSV(rawData);
+        // Swapped to our new smart detector function
+        const matrix = parseSpreadsheetData(rawData);
         if (matrix.length === 0 || matrix[0].length === 0) return;
 
         const totalRows = matrix.length;
@@ -192,9 +204,9 @@
             const isHeader = (r === 0);
             const rowY = r * rowHeight;
             
-            xml += `    \n`;
+            xml += `    <!-- Row ${r} -->\n`;
             xml += `    <mxCell id="row_${r}" parent="table_main" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;swimlaneBody=0;strokeColor=inherit;top=0;left=0;bottom=0;right=0;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" value="" vertex="1">\n`;
-            xml += `      <mxGeometry height="${rowHeight}" width="${totalTableWidth}" ${rowY > 0 ? `y="${rowY}"` : ''} as="geometry" />\n`;
+            xml += `      <mxGeometry height="${rowHeight}" width="${totalTableWidth}" ${rowY > 0 ? `y="${rowY}"` : 'y="0"'} x="0" as="geometry" />\n`;
             xml += `    </mxCell>\n`;
 
             for (let c = 0; c < totalCols; c++) {
@@ -206,7 +218,7 @@
                     : `shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;strokeColor=inherit;overflow=hidden;fillColor=none;top=0;left=0;bottom=0;right=0;pointerEvents=1;`;
 
                 xml += `    <mxCell id="cell_${r}_${c}" parent="row_${r}" style="${cellStyle}" value="${cellValue}" vertex="1">\n`;
-                xml += `      <mxGeometry height="${rowHeight}" width="${colWidth}" ${cellX > 0 ? `x="${cellX}"` : ''} as="geometry" />\n`;
+                xml += `      <mxGeometry height="${rowHeight}" width="${colWidth}" ${cellX > 0 ? `x="${cellX}"` : 'x="0"'} y="0" as="geometry"><mxRectangle height="${rowHeight}" width="${colWidth}" as="alternateBounds" /></mxGeometry>\n`;
                 xml += `    </mxCell>\n`;
             }
         }
